@@ -1,12 +1,13 @@
 import json
 import base64
 import io
-import dash
-from llm import theorize_about_data, convert_metadata, get_variables_from_metadata
-from dash import dcc, html, Output, Input, State
+import logging
 import pandas as pd
 
-import logging
+import dash
+import dash_bootstrap_components as dbc
+from dash import dcc, html, Output, Input, State
+from llm import theorize_about_data, convert_metadata, get_variables_from_metadata
 
 # Configure logging at the start of your script
 logging.basicConfig(
@@ -16,47 +17,91 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
-external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
 
+# Use a Bootstrap theme for styling – here we select the LUX theme as an example.
+external_stylesheets = [dbc.themes.LUX]
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
-app.layout = html.Div(
+app.layout = dbc.Container(
     [
-        # CSV file upload component
-        dcc.Upload(
-            id="upload-data",
-            children=html.Div(
-                ["Drag and drop or click to select a CSV file."]),
-            style={
-                "width": "100%",
-                "height": "60px",
-                "lineHeight": "60px",
-                "borderWidth": "1px",
-                "borderStyle": "dashed",
-                "borderRadius": "5px",
-                "textAlign": "center",
-                "margin": "10px",
-            },
-            multiple=False,  # Only one file at a time
-        ),
-        # Textarea component for metadata input
-        html.Div(
-            [
-                html.Label("Enter Metadata for the CSV file:"),
-                dcc.Textarea(
-                    id="metadata-input",
-                    placeholder="Type metadata here...",
-                    value="",
-                    style={"width": "100%", "height": 100},
+        # Header
+        dbc.Row(
+            dbc.Col(
+                html.H2(
+                    "CSV and Metadata Upload Dashboard", className="text-center my-3"
                 ),
-                html.Button("Submit Metadata",
-                            id="metadata-submit", n_clicks=0),
-            ],
-            style={"margin": "20px"},
+                width=12,
+            )
         ),
-        # Display output (metadata text and CSV preview)
-        html.Div(id="output-data-upload"),
-    ]
+        # File Upload Section
+        dbc.Row(
+            dbc.Col(
+                dbc.Card(
+                    [
+                        dbc.CardHeader("Upload CSV File"),
+                        dbc.CardBody(
+                            dcc.Upload(
+                                id="upload-data",
+                                children=html.Div(
+                                    "Drag and drop or click to select a CSV file."
+                                ),
+                                style={
+                                    "width": "100%",
+                                    "height": "40px",
+                                    "lineHeight": "40px",
+                                    "borderWidth": "1px",
+                                    "borderStyle": "dashed",
+                                    "borderRadius": "5px",
+                                    "textAlign": "center",
+                                    "margin": "10px",
+                                },
+                                multiple=False,
+                            )
+                        ),
+                    ],
+                    className="mb-3",
+                ),
+                width=12,
+            )
+        ),
+        # Metadata Input Section
+        dbc.Row(
+            dbc.Col(
+                dbc.Card(
+                    [
+                        dbc.CardHeader("Enter Metadata for the CSV File"),
+                        dbc.CardBody(
+                            [
+                                dcc.Textarea(
+                                    id="metadata-input",
+                                    placeholder="Type metadata here...",
+                                    value="",
+                                    style={"width": "100%", "height": "120px"},
+                                ),
+                                dbc.Button(
+                                    "Submit Metadata",
+                                    id="metadata-submit",
+                                    n_clicks=0,
+                                    color="primary",
+                                    className="mt-2",
+                                ),
+                            ]
+                        ),
+                    ],
+                    className="mb-3",
+                ),
+                width=12,
+            )
+        ),
+        # Output Section for CSV Preview and Suggested Questions
+        dbc.Row(
+            dbc.Col(
+                html.Div(id="output-data-upload"),
+                width=12,
+            )
+        ),
+    ],
+    fluid=True,
 )
 
 
@@ -70,12 +115,7 @@ def parse_contents(contents, filename):
             return html.Div(["Invalid file format. Please upload a CSV file."])
     except Exception as e:
         return html.Div([f"There was an error processing this file: {e}"])
-
-    # Display the file name, metadata (if provided), and a preview of the CSV data.
     return df
-
-
-# Callback to update the output based on the uploaded CSV and metadata text input.
 
 
 @app.callback(
@@ -90,12 +130,10 @@ def update_output(contents, filename, n_clicks, metadata):
     if contents is not None:
         df = parse_contents(contents, filename)
         if isinstance(df, pd.DataFrame):
-            # Get the questions only if metadata is provided.
             if metadata.strip() != "":
                 json_metadata = convert_metadata(metadata)
                 metadata_result = theorize_about_data(json_metadata)
                 try:
-                    # Convert the JSON string to a dictionary and extract the list of questions.
                     result_dict = json.loads(metadata_result)
                     causal_variables_json = get_variables_from_metadata(
                         json_metadata)
@@ -103,7 +141,6 @@ def update_output(contents, filename, n_clicks, metadata):
                     questions_list = result_dict.get("questions", [])
                     print(causal_variables)
                 except Exception as e:
-                    # Fallback: if parsing fails, show the error message.
                     questions_list = [f"Error parsing JSON: {str(e)}"]
                     causal_variables = [f"Error parsing JSON: {str(e)}"]
             else:
@@ -111,7 +148,7 @@ def update_output(contents, filename, n_clicks, metadata):
                     "Note": "Enter Metadata to automatically identify treat, outcome and confounders"
                 }
                 questions_list = [
-                    "Please enter plaintext metadata to get suggeested questions"
+                    "Please enter plaintext metadata to get suggested questions"
                 ]
 
             variable_dropdowns = [
@@ -126,7 +163,6 @@ def update_output(contents, filename, n_clicks, metadata):
                 )
                 for i, all_vals in causal_variables.items()
             ]
-            # Create a separate HTML element (e.g., an html.P) for each question.
             question_elements = [
                 html.Div(
                     question,
@@ -144,7 +180,7 @@ def update_output(contents, filename, n_clicks, metadata):
             return html.Div(
                 [
                     html.H5(
-                        "Suggested casual inference questions that can be investigated-"
+                        "Suggested causal inference questions that can be investigated:"
                     ),
                     html.Div(variable_dropdowns),
                     html.Div(question_elements),

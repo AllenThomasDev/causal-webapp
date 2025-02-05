@@ -2,10 +2,20 @@ import json
 import base64
 import io
 import dash
-from llm import theorize_about_data, convert_metadata
+from llm import theorize_about_data, convert_metadata, get_variables_from_metadata
 from dash import dcc, html, Output, Input, State
 import pandas as pd
 
+import logging
+
+# Configure logging at the start of your script
+logging.basicConfig(
+    filename="log.log",
+    filemode="a",
+    level=logging.DEBUG,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
@@ -15,7 +25,8 @@ app.layout = html.Div(
         # CSV file upload component
         dcc.Upload(
             id="upload-data",
-            children=html.Div(["Drag and drop or click to select a CSV file."]),
+            children=html.Div(
+                ["Drag and drop or click to select a CSV file."]),
             style={
                 "width": "100%",
                 "height": "60px",
@@ -38,7 +49,8 @@ app.layout = html.Div(
                     value="",
                     style={"width": "100%", "height": 100},
                 ),
-                html.Button("Submit Metadata", id="metadata-submit", n_clicks=0),
+                html.Button("Submit Metadata",
+                            id="metadata-submit", n_clicks=0),
             ],
             style={"margin": "20px"},
         ),
@@ -80,19 +92,40 @@ def update_output(contents, filename, n_clicks, metadata):
         if isinstance(df, pd.DataFrame):
             # Get the questions only if metadata is provided.
             if metadata.strip() != "":
-                metadata_result = theorize_about_data(convert_metadata(metadata))
+                json_metadata = convert_metadata(metadata)
+                metadata_result = theorize_about_data(json_metadata)
                 try:
                     # Convert the JSON string to a dictionary and extract the list of questions.
                     result_dict = json.loads(metadata_result)
+                    causal_variables_json = get_variables_from_metadata(
+                        json_metadata)
+                    causal_variables = json.loads(causal_variables_json)
                     questions_list = result_dict.get("questions", [])
+                    print(causal_variables)
                 except Exception as e:
                     # Fallback: if parsing fails, show the error message.
                     questions_list = [f"Error parsing JSON: {str(e)}"]
+                    causal_variables = [f"Error parsing JSON: {str(e)}"]
             else:
+                causal_variables = {
+                    "Note": "Enter Metadata to automatically identify treat, outcome and confounders"
+                }
                 questions_list = [
                     "Please enter plaintext metadata to get suggeested questions"
                 ]
 
+            variable_dropdowns = [
+                dcc.Dropdown(
+                    options=all_vals if isinstance(
+                        all_vals, list) else [all_vals],
+                    value=all_vals if isinstance(
+                        all_vals, list) else [all_vals],
+                    id=f"dropdown-{i}",
+                    multi=True,
+                    clearable=False,
+                )
+                for i, all_vals in causal_variables.items()
+            ]
             # Create a separate HTML element (e.g., an html.P) for each question.
             question_elements = [
                 html.Div(
@@ -113,6 +146,7 @@ def update_output(contents, filename, n_clicks, metadata):
                     html.H5(
                         "Suggested casual inference questions that can be investigated-"
                     ),
+                    html.Div(variable_dropdowns),
                     html.Div(question_elements),
                     html.H6("Or"),
                     dcc.Input(

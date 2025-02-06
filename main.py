@@ -1,3 +1,5 @@
+from sklearn.exceptions import DataConversionWarning
+import warnings
 from llm import (
     theorize_about_data,
     convert_metadata,
@@ -17,7 +19,21 @@ import os
 import matplotlib.pyplot as plt
 import json
 import matplotlib
+import logging.config
 
+DEFAULT_LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "loggers": {
+        "": {
+            "level": "WARN",
+        },
+    },
+}
+logging.config.dictConfig(DEFAULT_LOGGING)
+# Disabling warnings output
+
+warnings.filterwarnings(action="ignore", category=DataConversionWarning)
 matplotlib.use("Agg")
 
 
@@ -119,6 +135,7 @@ app.layout = dbc.Container(
                             ]
                         ),
                         html.Div(id="estimation-parent"),
+                        html.Div(id="refute-parent"),
                     ],
                     width=6,
                 ),
@@ -252,7 +269,10 @@ def update_variable_dropdown_callback(contents, filename, n_clicks, metadata):
 
 
 @app.callback(
-    Output("estimation-parent", "children"),
+    [
+        Output("estimation-parent", "children"),
+        Output("refute-parent", "children"),
+    ],
     Input({"type": "variable_dropdowns", "index": ALL}, "value"),
 )
 def show_estimation_selector(values):
@@ -285,7 +305,71 @@ def show_estimation_selector(values):
                 )
             ],
         ),
+        dbc.Card(
+            [
+                dbc.CardHeader("Phase 4. Refutation"),
+                dbc.CardBody(
+                    [
+                        dcc.Dropdown(
+                            [
+                                "data_subset_refuter",
+                                "placebo_treatment_refuter",
+                                "random_common_cause",
+                            ],
+                            placeholder="Select which refutation method you want to use...",
+                            id="refutation-selector",
+                        ),
+                        html.Div(id="refutation-results"),
+                    ]
+                ),
+            ]
+        ),
     )
+
+
+@app.callback(
+    Output("refutation-results", "value"),
+    Input("refutation-selector", "value"),
+    prevent_initial_call=True,
+)
+def show_refutation(value):
+    placebo_type = "permute"
+    subset_fraction = 0.9
+    lalonde_identified_estimand = model.identify_effect(
+        proceed_when_unidentifiable=True
+    )
+    lalonde_estimate = model.estimate_effect(
+        lalonde_identified_estimand, method_name="backdoor.propensity_score_weighting"
+    )
+    return html.Div(
+        str(
+            model.refute_estimate(
+                lalonde_identified_estimand,
+                lalonde_estimate,
+                method_name="random_common_cause",
+            )
+        )
+    )
+    if value == "random_common_cause":
+        return model.refute_estimate(
+            lalonde_identified_estimand,
+            lalonde_estimate,
+            method_name="random_common_cause",
+        )
+    if value == "placebo_treatment_refuter":
+        return model.refute_estimate(
+            lalonde_identified_estimand,
+            lalonde_estimate,
+            method_name="placebo_treatment_refuter",
+            placebo_type="permute",
+        )
+    if value == "data_subset_refuter":
+        return model.refute_estimate(
+            lalonde_identified_estimand,
+            lalonde_estimate,
+            method_name="data_subset_refuter",
+            subset_fraction=0.9,
+        )
 
 
 def custom_show(*args, **kwargs):
@@ -431,5 +515,4 @@ def show_identification_plot(values):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
     app.run_server(debug=True)

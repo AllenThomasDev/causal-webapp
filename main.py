@@ -134,49 +134,107 @@ def parse_contents(contents, filename):
     State("metadata-input", "value"),
     prevent_initial_call=True,
 )
-def generate_output_layout(
-    variable_dropdowns, question_elements, graph_output, identified_estimand
-):
-    return dbc.Row(
-        [
-            dbc.Col(
+def update_output(contents, filename, n_clicks, metadata):
+    global df
+    if contents is not None:
+        df = parse_contents(contents, filename)
+        if isinstance(df, pd.DataFrame):
+            if metadata.strip() != "":
+                json_metadata = convert_metadata(metadata)
+                metadata_result = theorize_about_data(json_metadata)
+                try:
+                    result_dict = json.loads(metadata_result)
+                    causal_variables_json = get_variables_from_metadata(
+                        json_metadata)
+                    causal_variables = json.loads(causal_variables_json)
+                    questions_list = result_dict.get("questions", [])
+                    print(causal_variables)
+                except Exception as e:
+                    questions_list = [f"Error parsing JSON: {str(e)}"]
+                    causal_variables = [f"Error parsing JSON: {str(e)}"]
+            else:
+                causal_variables = {
+                    "Note": "Enter Metadata to automatically identify treat, outcome and confounders"
+                }
+                questions_list = [
+                    "Please enter plaintext metadata to get suggested questions"
+                ]
+
+            variable_dropdowns = [
+                html.Div(
+                    [
+                        html.Label(i.split("_")[0], style={
+                                   "margin-right": "10px"}),
+                        dcc.Dropdown(
+                            options=[
+                                {"label": val, "value": val}
+                                for val in (
+                                    all_vals
+                                    if isinstance(all_vals, list)
+                                    else [all_vals]
+                                )
+                            ],
+                            value=all_vals
+                            if isinstance(all_vals, list)
+                            else [all_vals],
+                            id={"type": "variable_dropdowns", "index": n_clicks},
+                            multi=True,
+                            clearable=False,
+                        ),
+                    ],
+                    style={
+                        "display": "flex",
+                        "align-items": "center",
+                        "margin-bottom": "10px",
+                    },
+                )
+                for i, all_vals in causal_variables.items()
+            ]
+            question_elements = [
+                html.Div(
+                    question,
+                    id=f"question-{i}",
+                    style={
+                        "cursor": "pointer",
+                        "color": "blue",
+                        "text-decoration": "underline",
+                        "margin": "10px 0",
+                    },
+                    n_clicks=0,
+                )
+                for i, question in enumerate(questions_list)
+            ]
+            return dbc.Row(
                 [
-                    html.H4("Variable Selection"),
-                    html.P("Select variables for causal analysis:"),
-                    html.Div(variable_dropdowns),
-                ],
-                md=4,
-            ),
-            dbc.Col(
-                [
-                    html.H4("Causal Graph"),
-                    dcc.Loading(children=html.Div(
-                        graph_output), type="circle"),
-                    html.Pre(
-                        str(identified_estimand).replace("###", "\n\n"),
-                        className="mt-3",
+                    dbc.Col(
+                        [
+                            html.P(
+                                "Based on your metadata, variables are inferred - "),
+                            html.Div(variable_dropdowns),
+                            html.Div(id="graph_parent"),
+                        ]
                     ),
-                ],
-                md=4,
-            ),
-            dbc.Col(
-                [
-                    html.H4("Suggested Questions"),
-                    html.Div(question_elements),
-                    html.H6("Or Enter Your Own:"),
-                    dcc.Input(
-                        id="input_question",
-                        type="text",
-                        placeholder="Type your question...",
-                        debounce=True,
-                        style={"width": "100%", "marginBottom": "15px"},
+                    dbc.Col(
+                        [
+                            html.H5(
+                                "Suggested causal inference questions that can be investigated:"
+                            ),
+                            html.Div(question_elements),
+                            html.H6("Or"),
+                            dcc.Input(
+                                id="input_question",
+                                type="text",
+                                placeholder="Enter your own question - ",
+                                debounce=True,
+                                style={"width": "600px", "height": "48px"},
+                            ),
+                        ]
                     ),
-                ],
-                md=4,
-            ),
-        ],
-        className="mt-4",  # Add some top margin for spacing
-    )
+                ]
+            )
+        else:
+            return df
+    return html.Div(["No file uploaded yet."])
 
 
 @app.callback(

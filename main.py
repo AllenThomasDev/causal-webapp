@@ -40,74 +40,77 @@ app.layout = dbc.Container(
             [
                 dbc.Col(
                     dbc.Col(
-                        dbc.Card(
-                            [
-                                dbc.CardHeader("Upload CSV File"),
-                                dbc.CardBody(
-                                    dcc.Upload(
-                                        id="upload-data",
-                                        children=html.Div(
-                                            "Drag and drop or click to select a CSV file."
-                                        ),
-                                        style={
-                                            "width": "100%",
-                                            "height": "40px",
-                                            "lineHeight": "40px",
-                                            "borderWidth": "1px",
-                                            "borderStyle": "dashed",
-                                            "borderRadius": "5px",
-                                            "textAlign": "center",
-                                            "margin": "10px",
-                                        },
-                                        multiple=False,
-                                    )
-                                ),
-                            ],
-                            className="mb-3",
-                        ),
+                        [
+                            dbc.Card(
+                                [
+                                    dbc.CardHeader("Upload CSV File"),
+                                    dbc.CardBody(
+                                        dcc.Upload(
+                                            id="upload-data",
+                                            children=html.Div(
+                                                "Drag and drop or click to select a CSV file."
+                                            ),
+                                            style={
+                                                "width": "100%",
+                                                "height": "40px",
+                                                "lineHeight": "40px",
+                                                "borderWidth": "1px",
+                                                "borderStyle": "dashed",
+                                                "borderRadius": "5px",
+                                                "textAlign": "center",
+                                                "margin": "10px",
+                                            },
+                                            multiple=False,
+                                        )
+                                    ),
+                                ],
+                                className="mb-3",
+                            ),
+                            html.Div(id="question-container"),
+                        ],
                         width=12,
                     )
                 ),
                 # Metadata Input Section
                 dbc.Col(
-                    dbc.Col(
-                        dbc.Card(
-                            [
-                                dbc.CardHeader(
-                                    "Enter Metadata for the CSV File"),
-                                dbc.CardBody(
-                                    [
-                                        dcc.Textarea(
-                                            id="metadata-input",
-                                            placeholder="Type metadata here...",
-                                            value="",
-                                            style={"width": "100%",
-                                                   "height": "120px"},
-                                        ),
-                                        dbc.Button(
-                                            "Submit Metadata",
-                                            id="metadata-submit",
-                                            n_clicks=0,
-                                            color="primary",
-                                            className="mt-2",
-                                        ),
-                                    ]
-                                ),
-                            ],
-                            className="mb-3",
+                    [
+                        dbc.Col(
+                            dbc.Card(
+                                [
+                                    dbc.CardHeader(
+                                        "Enter Metadata for the CSV File"),
+                                    dbc.CardBody(
+                                        [
+                                            dcc.Textarea(
+                                                id="metadata-input",
+                                                placeholder="Type metadata here...",
+                                                value="",
+                                                style={
+                                                    "width": "100%",
+                                                    "height": "120px",
+                                                },
+                                            ),
+                                            dbc.Button(
+                                                "Submit Metadata",
+                                                id="metadata-submit",
+                                                n_clicks=0,
+                                                color="primary",
+                                                className="mt-2",
+                                            ),
+                                        ]
+                                    ),
+                                ],
+                                className="mb-3",
+                            ),
+                            width=12,
                         ),
-                        width=12,
-                    )
+                        html.Div(id="variable-dropdown-container"),
+                        html.Div(id="graph_parent"),
+                    ]
                 ),
             ]
         ),
         # Output Section for CSV Preview and Suggested Questions
-        dbc.Row(
-            dbc.Col(
-                html.Div(id="output-data-upload"),
-                width=12,
-            )
-        ),
     ],
     fluid=True,
 )
@@ -126,115 +129,116 @@ def parse_contents(contents, filename):
     return df
 
 
+def update_question_elements(questions_list):
+    return dbc.Card(
+        [
+            dbc.CardHeader("Suggested Causal Questions You Can ask - "),
+            dbc.CardBody(
+                [
+                    html.Div(
+                        question,
+                        id=f"question-{i}",
+                        style={
+                            "cursor": "pointer",
+                            "color": "blue",
+                            "margin": "10px 0",
+                        },
+                        n_clicks=0,
+                    )
+                    for i, question in enumerate(questions_list)
+                ]
+            ),
+        ]
+    )
+
+
+def update_variable_dropdowns(causal_variables, n_clicks):
+    return dbc.Card(
+        [
+            dbc.CardHeader("Variables"),
+            dbc.CardBody(
+                [
+                    html.Div(
+                        [
+                            html.Label(i.split("_")[0], style={
+                                       "margin-right": "10px"}),
+                            dcc.Dropdown(
+                                options=[
+                                    {"label": val, "value": val}
+                                    for val in (
+                                        all_vals
+                                        if isinstance(all_vals, list)
+                                        else [all_vals]
+                                    )
+                                ],
+                                value=all_vals
+                                if isinstance(all_vals, list)
+                                else [all_vals],
+                                id={"type": "variable_dropdowns",
+                                    "index": n_clicks},
+                                multi=True,
+                                clearable=False,
+                            ),
+                        ],
+                        style={
+                            "align-items": "center",
+                            "margin-bottom": "10px",
+                        },
+                    )
+                    for i, all_vals in causal_variables.items()
+                ]
+            ),
+        ]
+    )
+
+
 @app.callback(
-    Output("output-data-upload", "children"),
+    Output("question-container", "children"),
+    Input("metadata-submit", "n_clicks"),
+    State("metadata-input", "value"),
+    prevent_initial_call=True,
+)
+def update_question_elements_callback(n_clicks, metadata):
+    if metadata.strip() != "":
+        try:
+            json_metadata = convert_metadata(metadata)
+            metadata_result = theorize_about_data(json_metadata)
+            result_dict = json.loads(metadata_result)
+            questions_list = result_dict.get("questions", [])
+        except Exception as e:
+            questions_list = [f"Error parsing JSON: {str(e)}"]
+    else:
+        questions_list = [
+            "Please enter plaintext metadata to get suggested questions"]
+    return update_question_elements(questions_list)
+
+
+@app.callback(
+    Output("variable-dropdown-container", "children"),
     Input("upload-data", "contents"),
     Input("upload-data", "filename"),
     Input("metadata-submit", "n_clicks"),
     State("metadata-input", "value"),
     prevent_initial_call=True,
 )
-def update_output(contents, filename, n_clicks, metadata):
-    global df
+def update_variable_dropdown_callback(contents, filename, n_clicks, metadata):
     if contents is not None:
+        global df
         df = parse_contents(contents, filename)
-        if isinstance(df, pd.DataFrame):
-            if metadata.strip() != "":
+        if isinstance(df, pd.DataFrame) and metadata.strip() != "":
+            try:
                 json_metadata = convert_metadata(metadata)
-                metadata_result = theorize_about_data(json_metadata)
-                try:
-                    result_dict = json.loads(metadata_result)
-                    causal_variables_json = get_variables_from_metadata(
-                        json_metadata)
-                    causal_variables = json.loads(causal_variables_json)
-                    questions_list = result_dict.get("questions", [])
-                    print(causal_variables)
-                except Exception as e:
-                    questions_list = [f"Error parsing JSON: {str(e)}"]
-                    causal_variables = [f"Error parsing JSON: {str(e)}"]
-            else:
-                causal_variables = {
-                    "Note": "Enter Metadata to automatically identify treat, outcome and confounders"
-                }
-                questions_list = [
-                    "Please enter plaintext metadata to get suggested questions"
-                ]
-
-            variable_dropdowns = [
-                html.Div(
-                    [
-                        html.Label(i.split("_")[0], style={
-                                   "margin-right": "10px"}),
-                        dcc.Dropdown(
-                            options=[
-                                {"label": val, "value": val}
-                                for val in (
-                                    all_vals
-                                    if isinstance(all_vals, list)
-                                    else [all_vals]
-                                )
-                            ],
-                            value=all_vals
-                            if isinstance(all_vals, list)
-                            else [all_vals],
-                            id={"type": "variable_dropdowns", "index": n_clicks},
-                            multi=True,
-                            clearable=False,
-                        ),
-                    ],
-                    style={
-                        "display": "flex",
-                        "align-items": "center",
-                        "margin-bottom": "10px",
-                    },
-                )
-                for i, all_vals in causal_variables.items()
-            ]
-            question_elements = [
-                html.Div(
-                    question,
-                    id=f"question-{i}",
-                    style={
-                        "cursor": "pointer",
-                        "color": "blue",
-                        "text-decoration": "underline",
-                        "margin": "10px 0",
-                    },
-                    n_clicks=0,
-                )
-                for i, question in enumerate(questions_list)
-            ]
-            return dbc.Row(
-                [
-                    dbc.Col(
-                        [
-                            html.P(
-                                "Based on your metadata, variables are inferred - "),
-                            html.Div(variable_dropdowns),
-                            html.Div(id="graph_parent"),
-                        ]
-                    ),
-                    dbc.Col(
-                        [
-                            html.H5(
-                                "Suggested causal inference questions that can be investigated:"
-                            ),
-                            html.Div(question_elements),
-                            html.H6("Or"),
-                            dcc.Input(
-                                id="input_question",
-                                type="text",
-                                placeholder="Enter your own question - ",
-                                debounce=True,
-                                style={"width": "600px", "height": "48px"},
-                            ),
-                        ]
-                    ),
-                ]
-            )
+                causal_variables_json = get_variables_from_metadata(
+                    json_metadata)
+                causal_variables = json.loads(causal_variables_json)
+            except Exception as e:
+                causal_variables = {"Error": f"Error parsing JSON: {str(e)}"}
         else:
-            return df
-    return html.Div(["No file uploaded yet."])
+            causal_variables = {
+                "Note": "Enter Metadata to automatically identify treat, outcome and confounders"
+            }
+        return update_variable_dropdowns(causal_variables, n_clicks)
+    return html.Div("No file uploaded yet.")
 
 
 @app.callback(

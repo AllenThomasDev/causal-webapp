@@ -8,7 +8,7 @@ import pandas as pd
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import dcc, html, Output, Input, State, ALL
+from dash import dcc, html, Output, Input, State, ALL, ctx
 from llm import theorize_about_data, convert_metadata, get_variables_from_metadata
 
 # Configure logging at the start of your script
@@ -30,7 +30,8 @@ app.layout = dbc.Container(
         dbc.Row(
             dbc.Col(
                 html.H2(
-                    "CSV and Metadata Upload Dashboard", className="text-center my-3"
+                    "Causal Inference - Model, Identify, Estimate",
+                    className="text-center my-3",
                 ),
                 width=12,
             )
@@ -97,7 +98,12 @@ app.layout = dbc.Container(
                 dbc.Col(html.Div(id="variable-dropdown-container")),
             ]
         ),
-        dbc.Row([dbc.Col(html.Div(id="graph_parent"), width=6)]),
+        dbc.Row(
+            [
+                dbc.Col(html.Div(id="graph_parent"), width=6),
+                dbc.Col(html.Div(id="estimation-parent"), width=6),
+            ]
+        ),
     ],
     fluid=True,
 )
@@ -229,6 +235,35 @@ def update_variable_dropdown_callback(contents, filename, n_clicks, metadata):
 
 
 @app.callback(
+    Output("estimation-parent", "children"),
+    Input({"type": "variable_dropdowns", "index": ALL}, "value"),
+)
+def show_estimation_selector(values):
+    if len(values) < 3:
+        return dbc.Card()
+    return (
+        dbc.Col(
+            [
+                dbc.Card(
+                    [
+                        dbc.CardHeader("Phase 3. Estimate"),
+                        dbc.CardBody(
+                            [
+                                dcc.Dropdown(
+                                    values[2],
+                                    placeholder="Select which confounder you want to make an estimation for...",
+                                ),
+                                html.Div(id="estimation-graph"),
+                            ]
+                        ),
+                    ]
+                )
+            ],
+        ),
+    )
+
+
+@app.callback(
     Output("graph_parent", "children"),
     Input({"type": "variable_dropdowns", "index": ALL}, "value"),
     prevent_initial_call=True,
@@ -259,8 +294,7 @@ def show_graph(values):
     #     proceed_when_unidentifiable=True)
     return dbc.Card(
         [
-            dbc.CardHeader(
-                "Following is the causal DAG based on your variables"),
+            dbc.CardHeader("Model"),
             dbc.CardBody(
                 [
                     html.Img(

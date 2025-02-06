@@ -108,6 +108,7 @@ app.layout = dbc.Container(
                 dbc.Col(html.Div(id="estimation-parent"), width=6),
             ]
         ),
+        dbc.Row([dbc.Col("I am here")]),
     ],
     fluid=True,
 )
@@ -160,14 +161,7 @@ def update_variable_dropdowns(causal_variables, n_clicks):
                             html.Label(i.split("_")[0], style={
                                        "margin-right": "10px"}),
                             dcc.Dropdown(
-                                options=[
-                                    {"label": val, "value": val}
-                                    for val in (
-                                        all_vals
-                                        if isinstance(all_vals, list)
-                                        else [all_vals]
-                                    )
-                                ],
+                                options=list(df.columns.values),
                                 value=all_vals
                                 if isinstance(all_vals, list)
                                 else [all_vals],
@@ -355,7 +349,7 @@ def show_graph(values):
     #     proceed_when_unidentifiable=True)
     return dbc.Card(
         [
-            dbc.CardHeader("Model"),
+            dbc.CardHeader("Phase 1. Model"),
             dbc.CardBody(
                 [
                     html.Img(

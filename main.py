@@ -1,15 +1,19 @@
-import json
-import os
-from dowhy import CausalModel
-import base64
-import io
-import logging
-import pandas as pd
-
-import dash
-import dash_bootstrap_components as dbc
-from dash import dcc, html, Output, Input, State, ALL, ctx
 from llm import theorize_about_data, convert_metadata, get_variables_from_metadata
+from dash import dcc, html, Output, Input, State, ALL
+import dash_bootstrap_components as dbc
+import dash
+import pandas as pd
+import logging
+import io
+import base64
+from dowhy import CausalModel
+import os
+import matplotlib.pyplot as plt
+import json
+import matplotlib
+
+matplotlib.use("Agg")
+
 
 # Configure logging at the start of your script
 logging.basicConfig(
@@ -251,7 +255,15 @@ def show_estimation_selector(values):
                             [
                                 dcc.Dropdown(
                                     values[2],
+                                    values[2][0],
                                     placeholder="Select which confounder you want to make an estimation for...",
+                                    id="estimation-selector",
+                                ),
+                                dcc.Dropdown(
+                                    ["continuous", "discrete"],
+                                    "discrete",
+                                    placeholder="Select the type of the confounder variable...",
+                                    id="estimation-type-selector",
                                 ),
                                 html.Div(id="estimation-graph"),
                             ]
@@ -261,6 +273,55 @@ def show_estimation_selector(values):
             ],
         ),
     )
+
+
+def custom_show(*args, **kwargs):
+    # "This is becuase estimate.interpret, does not save the image"
+    plt.savefig("estimate_chart.png")
+
+
+plt.show = custom_show
+
+
+@app.callback(
+    Output("estimation-graph", "children"),
+    Input("estimation-selector", "value"),
+    Input("estimation-type-selector", "value"),
+    prevent_initial_call=True,
+)
+def show_estimation_plot(value, confounder_type):
+    print(value)
+    identified_estimand = model.identify_effect(
+        proceed_when_unidentifiable=True)
+    estimate = model.estimate_effect(
+        identified_estimand,
+        method_name="backdoor.propensity_score_weighting",
+        target_units="ate",
+        method_params={"weighting_scheme": "ips_weight"},
+    )
+    try:
+        estimate.interpret(
+            method_name="confounder_distribution_interpreter",
+            var_type=confounder_type,
+            var_name=value,
+            fig_size=(10, 7),
+            font_size=12,
+        )
+        image_path = "estimate_chart.png"
+        if not os.path.exists(image_path):
+            raise FileNotFoundError(
+                f"{image_path} not found. Ensure model.view_model() generates the image correctly."
+            )
+        with open(image_path, "rb") as image_file:
+            encoded_image = base64.b64encode(image_file.read()).decode("utf-8")
+            return html.Img(
+                src=f"data:image/png;base64,{encoded_image}",
+                style={"width": "85%"},
+            )
+    except:
+        return html.Div(
+            "Possible mismatch between confounder and type (discrete/continuous)"
+        )
 
 
 @app.callback(
@@ -274,7 +335,7 @@ def show_graph(values):
     outcome = values[0]
     treat = values[1]
     causes = values[2]
-
+    global model
     model = CausalModel(data=df, treatment=treat,
                         outcome=outcome, common_causes=causes)
     model.view_model()

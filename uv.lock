@@ -48,6 +48,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "dash" },
     { name = "dash-bootstrap-components" },
+    { name = "dash-dangerously-set-inner-html" },
     { name = "dowhy" },
     { name = "graphviz" },
     { name = "ipython" },
@@ -59,6 +60,7 @@ dependencies = [
 requires-dist = [
     { name = "dash", specifier = ">=2.18.2" },
     { name = "dash-bootstrap-components", specifier = ">=1.7.1" },
+    { name = "dash-dangerously-set-inner-html", specifier = ">=0.0.2" },
     { name = "dowhy", specifier = "==0.8" },
     { name = "graphviz", specifier = ">=0.20.3" },
     { name = "ipython", specifier = ">=8.32.0" },
@@ -201,6 +203,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/41/55/ad4a2cf9b7d413477
 wheels = [
     { url = "https://files.pythonhosted.org/packages/00/9e/a29f726e84e531a36d56cff187e61d8c96d2cc253c5bcef9a7695acb7e6a/dash_core_components-2.0.0-py3-none-any.whl", hash = "sha256:52b8e8cce13b18d0802ee3acbc5e888cb1248a04968f962d63d070400af2e346", size = 3822 },
 ]
+
+[[package]]
+name = "dash-dangerously-set-inner-html"
+version = "0.0.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/56/b1/5102060b9b6836409db84265f4f934475c2707cce87e75f3f8a04493e0dc/dash_dangerously_set_inner_html-0.0.2.tar.gz", hash = "sha256:d7fe990755851fc4d2e22c8f10b7aea055cabf380bbceefba589779b269fea64", size = 4956 }
 
 [[package]]
 name = "dash-html-components"

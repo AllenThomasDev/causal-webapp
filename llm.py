@@ -54,6 +54,30 @@ def theorize_about_data(input):
     return response.choices[0].message.content
 
 
+def explain_identification(input, metadata):
+    prompt = (
+        "You will be given the output of a causal inference identification phase. This output was generated using the doWhy library"
+        "The statsmodels.formula.api as smf library was also used."
+        "You have to explain this output to a layperson, try to keep it concise. Explain the broader implications"
+        f"Additional Metadata if needed: {metadata}"
+        f"Output of identification: {input}"
+    )
+    response = openai.beta.chat.completions.parse(
+        model="gpt-4o-mini-2024-07-18",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a Python assistant that helps explain complex statistics topics. Return in Markdown",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0,
+    )
+    # Expecting OpenAI to return JSON like: {"questions": ["Question 1", "Question 2", "Question 3"]}
+    print(response.choices[0].message.content)
+    return response.choices[0].message.content
+
+
 def get_variables_from_metadata(input):
     prompt = (
         "You will be given certain text metadata"

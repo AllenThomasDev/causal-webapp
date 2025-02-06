@@ -1,4 +1,10 @@
-from llm import theorize_about_data, convert_metadata, get_variables_from_metadata
+from llm import (
+    theorize_about_data,
+    convert_metadata,
+    get_variables_from_metadata,
+    explain_identification,
+)
+import dash_dangerously_set_inner_html
 from dash import dcc, html, Output, Input, State, ALL
 import dash_bootstrap_components as dbc
 import dash
@@ -60,12 +66,6 @@ app.layout = dbc.Container(
                             ],
                             className="mb-3",
                         ),
-                    ],
-                    width=6,
-                ),
-                # Metadata Input Section
-                dbc.Col(
-                    [
                         dbc.Card(
                             [
                                 dbc.CardHeader(
@@ -94,21 +94,39 @@ app.layout = dbc.Container(
                     ],
                     width=6,
                 ),
-            ]
-        ),
-        dbc.Row(
-            [
+                # Metadata Input Section
                 dbc.Col(html.Div(id="question-container")),
-                dbc.Col(html.Div(id="variable-dropdown-container")),
             ]
         ),
         dbc.Row(
             [
+                dbc.Col(html.Div(id="variable-dropdown-container")),
                 dbc.Col(html.Div(id="graph_parent"), width=6),
-                dbc.Col(html.Div(id="estimation-parent"), width=6),
             ]
         ),
-        dbc.Row([dbc.Col("I am here")]),
+        dbc.Row(
+            [
+                dbc.Col(
+                    [
+                        dbc.Card(
+                            [
+                                dbc.CardHeader("Phase 2. Identification"),
+                                dbc.CardBody(
+                                    [
+                                        html.Div(id="identification-parent"),
+                                    ]
+                                ),
+                            ]
+                        ),
+                        html.Div(id="estimation-parent"),
+                    ],
+                    width=6,
+                ),
+                dbc.Col(
+                    html.Div(id="identification-explanation"),
+                ),
+            ]
+        ),
     ],
     fluid=True,
 )
@@ -190,6 +208,7 @@ def update_variable_dropdowns(causal_variables, n_clicks):
     prevent_initial_call=True,
 )
 def update_question_elements_callback(n_clicks, metadata):
+    global json_metadata
     if metadata.strip() != "":
         try:
             json_metadata = convert_metadata(metadata)
@@ -362,5 +381,55 @@ def show_graph(values):
     )
 
 
+@app.callback(
+    [
+        Output("identification-parent", "children"),
+        Output("identification-explanation", "children"),
+    ],
+    [Input({"type": "variable_dropdowns", "index": ALL}, "value")],
+    prevent_initial_call=True,
+)
+def show_identification_plot(values):
+    if len(values) < 3:
+        return dbc.Card()
+    outcome = values[0]
+    treat = values[1]
+    causes = values[2]
+    global model
+    model = CausalModel(data=df, treatment=treat,
+                        outcome=outcome, common_causes=causes)
+    identified_estimand = model.identify_effect(
+        proceed_when_unidentifiable=True)
+    estimate = model.estimate_effect(
+        identified_estimand,
+        method_name="backdoor.propensity_score_weighting",
+        target_units="ate",
+        method_params={"weighting_scheme": "ips_weight"},
+    )
+    # print(estimate)
+    print("Causal Estimate is " + str(estimate.value))
+
+    import statsmodels.formula.api as smf
+
+    reg = smf.wls("re78~1+treat", data=df, weights=df.ips_stabilized_weight)
+    res = reg.fit()
+    identificationToBeExplained = res.summary().as_text()
+    explanationmd = explain_identification(
+        identificationToBeExplained, json_metadata)
+    return html.Div(
+        [
+            dash_dangerously_set_inner_html.DangerouslySetInnerHTML(
+                res.summary().as_html()
+            )
+        ]
+    ), dbc.Card(
+        [
+            dbc.CardHeader("Simplified explanation of results - "),
+            dbc.CardBody([html.Div([dcc.Markdown(explanationmd)])]),
+        ]
+    )
+
+
 if __name__ == "__main__":
+    app.run_server(debug=True)
     app.run_server(debug=True)

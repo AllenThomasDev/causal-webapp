@@ -39,78 +39,65 @@ app.layout = dbc.Container(
         dbc.Row(
             [
                 dbc.Col(
-                    dbc.Col(
-                        [
-                            dbc.Card(
-                                [
-                                    dbc.CardHeader("Upload CSV File"),
-                                    dbc.CardBody(
-                                        dcc.Upload(
-                                            id="upload-data",
-                                            children=html.Div(
-                                                "Drag and drop or click to select a CSV file."
-                                            ),
-                                            style={
-                                                "width": "100%",
-                                                "height": "40px",
-                                                "lineHeight": "40px",
-                                                "borderWidth": "1px",
-                                                "borderStyle": "dashed",
-                                                "borderRadius": "5px",
-                                                "textAlign": "center",
-                                                "margin": "10px",
-                                            },
-                                            multiple=False,
-                                        )
-                                    ),
-                                ],
-                                className="mb-3",
-                            ),
-                            html.Div(id="question-container"),
-                        ],
-                        width=12,
-                    )
+                    [
+                        dbc.Card(
+                            [
+                                dbc.CardHeader("Upload CSV File"),
+                                dbc.CardBody(
+                                    dcc.Upload(
+                                        id="upload-data",
+                                        children=html.Div(
+                                            "Drag and drop or click to select a CSV file."
+                                        ),
+                                        multiple=False,
+                                    )
+                                ),
+                            ],
+                            className="mb-3",
+                        ),
+                    ],
+                    width=6,
                 ),
                 # Metadata Input Section
                 dbc.Col(
                     [
-                        dbc.Col(
-                            dbc.Card(
-                                [
-                                    dbc.CardHeader(
-                                        "Enter Metadata for the CSV File"),
-                                    dbc.CardBody(
-                                        [
-                                            dcc.Textarea(
-                                                id="metadata-input",
-                                                placeholder="Type metadata here...",
-                                                value="",
-                                                style={
-                                                    "width": "100%",
-                                                    "height": "120px",
-                                                },
-                                            ),
-                                            dbc.Button(
-                                                "Submit Metadata",
-                                                id="metadata-submit",
-                                                n_clicks=0,
-                                                color="primary",
-                                                className="mt-2",
-                                            ),
-                                        ]
-                                    ),
-                                ],
-                                className="mb-3",
-                            ),
-                            width=12,
+                        dbc.Card(
+                            [
+                                dbc.CardHeader(
+                                    "Enter Metadata for the CSV File"),
+                                dbc.CardBody(
+                                    [
+                                        dcc.Textarea(
+                                            id="metadata-input",
+                                            placeholder="Type metadata here...",
+                                            value="",
+                                            style={
+                                                "width": "100%",
+                                                "height": "120px",
+                                            },
+                                        ),
+                                        dbc.Button(
+                                            "Submit Metadata",
+                                            id="metadata-submit",
+                                            n_clicks=0,
+                                            color="primary",
+                                        ),
+                                    ]
+                                ),
+                            ],
                         ),
-                        html.Div(id="variable-dropdown-container"),
-                        html.Div(id="graph_parent"),
-                    ]
+                    ],
+                    width=6,
                 ),
             ]
         ),
-        # Output Section for CSV Preview and Suggested Questions
+        dbc.Row(
+            [
+                dbc.Col(html.Div(id="question-container")),
+                dbc.Col(html.Div(id="variable-dropdown-container")),
+            ]
+        ),
+        dbc.Row([dbc.Col(html.Div(id="graph_parent"), width=6)]),
     ],
     fluid=True,
 )
@@ -242,7 +229,7 @@ def update_variable_dropdown_callback(contents, filename, n_clicks, metadata):
 
 
 @app.callback(
-    Output("graph_parent", component_property="children"),
+    Output("graph_parent", "children"),
     Input({"type": "variable_dropdowns", "index": ALL}, "value"),
 )
 def show_graph(values):
@@ -271,7 +258,7 @@ def show_graph(values):
     print(type(identified_estimand))
     print()
 
-    return dbc.Col(
+    return dbc.Card(
         [
             html.Label("Following is the causal DAG based on your "),
             html.Img(src=f"data:image/png;base64,{encoded_image}"),

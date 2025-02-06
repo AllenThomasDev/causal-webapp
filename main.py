@@ -35,63 +35,69 @@ app.layout = dbc.Container(
         ),
         # File Upload Section
         dbc.Row(
-            dbc.Col(
-                dbc.Card(
-                    [
-                        dbc.CardHeader("Upload CSV File"),
-                        dbc.CardBody(
-                            dcc.Upload(
-                                id="upload-data",
-                                children=html.Div(
-                                    "Drag and drop or click to select a CSV file."
-                                ),
-                                style={
-                                    "width": "100%",
-                                    "height": "40px",
-                                    "lineHeight": "40px",
-                                    "borderWidth": "1px",
-                                    "borderStyle": "dashed",
-                                    "borderRadius": "5px",
-                                    "textAlign": "center",
-                                    "margin": "10px",
-                                },
-                                multiple=False,
-                            )
-                        ),
-                    ],
-                    className="mb-3",
-                ),
-                width=12,
-            )
-        ),
-        # Metadata Input Section
-        dbc.Row(
-            dbc.Col(
-                dbc.Card(
-                    [
-                        dbc.CardHeader("Enter Metadata for the CSV File"),
-                        dbc.CardBody(
+            [
+                dbc.Col(
+                    dbc.Col(
+                        dbc.Card(
                             [
-                                dcc.Textarea(
-                                    id="metadata-input",
-                                    placeholder="Type metadata here...",
-                                    value="",
-                                    style={"width": "100%", "height": "120px"},
+                                dbc.CardHeader("Upload CSV File"),
+                                dbc.CardBody(
+                                    dcc.Upload(
+                                        id="upload-data",
+                                        children=html.Div(
+                                            "Drag and drop or click to select a CSV file."
+                                        ),
+                                        style={
+                                            "width": "100%",
+                                            "height": "40px",
+                                            "lineHeight": "40px",
+                                            "borderWidth": "1px",
+                                            "borderStyle": "dashed",
+                                            "borderRadius": "5px",
+                                            "textAlign": "center",
+                                            "margin": "10px",
+                                        },
+                                        multiple=False,
+                                    )
                                 ),
-                                dbc.Button(
-                                    "Submit Metadata",
-                                    id="metadata-submit",
-                                    n_clicks=0,
-                                    color="primary",
-                                    className="mt-2",
-                                ),
-                            ]
+                            ],
+                            className="mb-3",
                         ),
-                    ],
-                    className="mb-3",
+                        width=12,
+                    )
                 ),
-                width=12,
-            )
+                # Metadata Input Section
+                dbc.Col(
+                    dbc.Col(
+                        dbc.Card(
+                            [
+                                dbc.CardHeader(
+                                    "Enter Metadata for the CSV File"),
+                                dbc.CardBody(
+                                    [
+                                        dcc.Textarea(
+                                            id="metadata-input",
+                                            placeholder="Type metadata here...",
+                                            value="",
+                                            style={"width": "100%",
+                                                   "height": "120px"},
+                                        ),
+                                        dbc.Button(
+                                            "Submit Metadata",
+                                            id="metadata-submit",
+                                            n_clicks=0,
+                                            color="primary",
+                                            className="mt-2",
+                                        ),
+                                    ]
+                                ),
+                            ],
+                            className="mb-3",
+                        ),
+                        width=12,
+                    )
+                ),
+            ]
         ),
         # Output Section for CSV Preview and Suggested Questions
         dbc.Row(

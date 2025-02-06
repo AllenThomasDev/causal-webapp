@@ -1,4 +1,6 @@
 import json
+import os
+from dowhy import CausalModel
 import base64
 import io
 import logging
@@ -6,7 +8,7 @@ import pandas as pd
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import dcc, html, Output, Input, State
+from dash import dcc, html, Output, Input, State, ALL
 from llm import theorize_about_data, convert_metadata, get_variables_from_metadata
 
 # Configure logging at the start of your script
@@ -132,77 +134,88 @@ def parse_contents(contents, filename):
     State("metadata-input", "value"),
     prevent_initial_call=True,
 )
-def update_output(contents, filename, n_clicks, metadata):
-    if contents is not None:
-        df = parse_contents(contents, filename)
-        if isinstance(df, pd.DataFrame):
-            if metadata.strip() != "":
-                json_metadata = convert_metadata(metadata)
-                metadata_result = theorize_about_data(json_metadata)
-                try:
-                    result_dict = json.loads(metadata_result)
-                    causal_variables_json = get_variables_from_metadata(
-                        json_metadata)
-                    causal_variables = json.loads(causal_variables_json)
-                    questions_list = result_dict.get("questions", [])
-                    print(causal_variables)
-                except Exception as e:
-                    questions_list = [f"Error parsing JSON: {str(e)}"]
-                    causal_variables = [f"Error parsing JSON: {str(e)}"]
-            else:
-                causal_variables = {
-                    "Note": "Enter Metadata to automatically identify treat, outcome and confounders"
-                }
-                questions_list = [
-                    "Please enter plaintext metadata to get suggested questions"
-                ]
-
-            variable_dropdowns = [
-                dcc.Dropdown(
-                    options=all_vals if isinstance(
-                        all_vals, list) else [all_vals],
-                    value=all_vals if isinstance(
-                        all_vals, list) else [all_vals],
-                    id=f"dropdown-{i}",
-                    multi=True,
-                    clearable=False,
-                )
-                for i, all_vals in causal_variables.items()
-            ]
-            question_elements = [
-                html.Div(
-                    question,
-                    id=f"question-{i}",
-                    style={
-                        "cursor": "pointer",
-                        "color": "blue",
-                        "text-decoration": "underline",
-                        "margin": "10px 0",
-                    },
-                    n_clicks=0,
-                )
-                for i, question in enumerate(questions_list)
-            ]
-            return html.Div(
+def generate_output_layout(
+    variable_dropdowns, question_elements, graph_output, identified_estimand
+):
+    return dbc.Row(
+        [
+            dbc.Col(
                 [
-                    html.H5(
-                        "Suggested causal inference questions that can be investigated:"
-                    ),
+                    html.H4("Variable Selection"),
+                    html.P("Select variables for causal analysis:"),
                     html.Div(variable_dropdowns),
+                ],
+                md=4,
+            ),
+            dbc.Col(
+                [
+                    html.H4("Causal Graph"),
+                    dcc.Loading(children=html.Div(
+                        graph_output), type="circle"),
+                    html.Pre(
+                        str(identified_estimand).replace("###", "\n\n"),
+                        className="mt-3",
+                    ),
+                ],
+                md=4,
+            ),
+            dbc.Col(
+                [
+                    html.H4("Suggested Questions"),
                     html.Div(question_elements),
-                    html.H6("Or"),
+                    html.H6("Or Enter Your Own:"),
                     dcc.Input(
                         id="input_question",
                         type="text",
-                        placeholder="Enter your own question - ",
+                        placeholder="Type your question...",
                         debounce=True,
-                        style={"width": "600px", "height": "48px"},
+                        style={"width": "100%", "marginBottom": "15px"},
                     ),
-                ]
-            )
-        else:
-            return df
-    return html.Div(["No file uploaded yet."])
+                ],
+                md=4,
+            ),
+        ],
+        className="mt-4",  # Add some top margin for spacing
+    )
+
+
+@app.callback(
+    Output("graph_parent", component_property="children"),
+    Input({"type": "variable_dropdowns", "index": ALL}, "value"),
+)
+def show_graph(values):
+    outcome = values[0]
+    treat = values[1]
+    causes = values[2]
+
+    model = CausalModel(data=df, treatment=treat,
+                        outcome=outcome, common_causes=causes)
+    model.view_model()
+
+    # Ensure the image file is saved before trying to read it
+    image_path = "causal_model.png"
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(
+            f"{image_path} not found. Ensure model.view_model() generates the image correctly."
+        )
+
+    # Encode the image to base64 for Dash display
+    with open(image_path, "rb") as image_file:
+        encoded_image = base64.b64encode(image_file.read()).decode("utf-8")
+
+    identified_estimand = model.identify_effect(
+        proceed_when_unidentifiable=True)
+    print(identified_estimand)
+    print(type(identified_estimand))
+    print()
+
+    return dbc.Col(
+        [
+            html.Label("Following is the causal DAG based on your "),
+            html.Img(src=f"data:image/png;base64,{encoded_image}"),
+            html.Pre(str(identified_estimand).replace("###", "\n\n")),
+        ]
+    )
 
 
 if __name__ == "__main__":

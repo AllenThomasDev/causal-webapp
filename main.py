@@ -231,8 +231,11 @@ def update_variable_dropdown_callback(contents, filename, n_clicks, metadata):
 @app.callback(
     Output("graph_parent", "children"),
     Input({"type": "variable_dropdowns", "index": ALL}, "value"),
+    prevent_initial_call=True,
 )
 def show_graph(values):
+    if len(values) < 3:
+        return dbc.Card()
     outcome = values[0]
     treat = values[1]
     causes = values[2]
@@ -252,17 +255,20 @@ def show_graph(values):
     with open(image_path, "rb") as image_file:
         encoded_image = base64.b64encode(image_file.read()).decode("utf-8")
 
-    identified_estimand = model.identify_effect(
-        proceed_when_unidentifiable=True)
-    print(identified_estimand)
-    print(type(identified_estimand))
-    print()
-
+    # identified_estimand = model.identify_effect(
+    #     proceed_when_unidentifiable=True)
     return dbc.Card(
         [
-            html.Label("Following is the causal DAG based on your "),
-            html.Img(src=f"data:image/png;base64,{encoded_image}"),
-            html.Pre(str(identified_estimand).replace("###", "\n\n")),
+            dbc.CardHeader(
+                "Following is the causal DAG based on your variables"),
+            dbc.CardBody(
+                [
+                    html.Img(
+                        src=f"data:image/png;base64,{encoded_image}",
+                        style={"width": "85%"},
+                    ),
+                ]
+            ),
         ]
     )
 
